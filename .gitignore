@@ -1,0 +1,4 @@
+*.o
+dwm.def.c
+*.so
+*.log
