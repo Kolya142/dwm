@@ -11,7 +11,7 @@
  * in O(1) time.
  *
  * Each child of the root window is called a client, except windows which have
- * set the override_redirect flag. Clients are organized in a linked client
+ * set the overrideredirect flag. Clients are organized in a linked client
  * list on each monitor, the focus history is remembered through a stack list
  * on each monitor. Each client contains a bit array to indicate the tags of a
  * client.
@@ -20,6 +20,7 @@
  *
  * To understand everything else, start reading main().
  */
+#define _GNU_SOURCE
 #include <X11/X.h>
 #include <time.h>
 #include <errno.h>
@@ -39,6 +40,7 @@
 #include <X11/Xproto.h>
 #include <X11/Xutil.h>
 #include <dlfcn.h>
+#include <link.h>
 #ifdef XINERAMA
 #include <X11/extensions/Xinerama.h>
 #endif /* XINERAMA */
@@ -1109,7 +1111,8 @@ __keypress(XEvent *e)
 	for (i = 0; i < LENGTH(keys); i++)
 		if (keysym == keys[i].keysym
 		    && CLEANMASK(keys[i].mod) == CLEANMASK(ev->state)
-		    && keys[i].func)
+		    && keys[i].func
+		    && *keys[i].func)
 			(*keys[i].func)(&(keys[i].arg));
 }
 
@@ -1517,7 +1520,7 @@ __run(void)
 			if ((*plug).handler[ev.type])
 				(*plug).handler[ev.type](&ev); /* call handler */
 		}
-		drawbars();
+	        // drawbars();
 	}
 }
 
@@ -2320,227 +2323,248 @@ void __toggleminimize(const Arg* arg) {
 }
 
 void __reloads(const Arg *arg) {
+	printf("Loading...\n");
 	system("cd /home/sony/dwm/ && make -B &> /home/sony/dwm/reloads.log");
-	void *handle = dlopen("/home/sony/dwm/dwm.so", RTLD_LAZY);
+	printf("Loading...\n");
+	char tmp[512];
+	printf("Loading...\n");
+	snprintf(tmp, 512, "/tmp/dwm-%d.so", rand());
+	printf("Loading...\n");
+	system("rm /tmp/dwm*.so");
+	printf("Loading...\n");
+	pid_t pid = fork();
+	int status;
+	if (!pid)
+		execve("/usr/bin/cp", (char *[]){"cp", "/home/sony/dwm/dwm.so", tmp, NULL}, __environ);
+	else waitpid(pid, &status, 0);
+	printf("Loading...\n");
+	if ((*plug).dl) {
+		printf("Old: %p\n", plug->dl);
+		// dlclose((*plug).dl);
+		plug->dl = NULL;
+	}
+	printf("%s\n", tmp);
+	void *handle = dlopen(tmp, RTLD_NOW || RTLD_LOCAL);
+	printf("New: %p\n", handle);
+	// abort();
 	if (!handle) return;
 
-	if ((*plug).dl) dlclose((*plug).dl);
 	(*plug).dl = handle;
 
 	memcpy(dlsym((*plug).dl, "plug"), &plug, sizeof(Plug *));
 
 	((void(*)())dlsym((*plug).dl, "applysymlinks"))();
 	
-	applyrules = dlsym((*plug).dl, "__applyrules");
-	applysizehints = dlsym((*plug).dl, "__applysizehints");
-	arrange = dlsym((*plug).dl, "__arrange");
-	arrangemon = dlsym((*plug).dl, "__arrangemon");
-	attach = dlsym((*plug).dl, "__attach");
-	attachstack = dlsym((*plug).dl, "__attachstack");
-	buttonpress = dlsym((*plug).dl, "__buttonpress");
-	checkotherwm = dlsym((*plug).dl, "__checkotherwm");
-	cleanup = dlsym((*plug).dl, "__cleanup");
-	cleanupmon = dlsym((*plug).dl, "__cleanupmon");
-	clientmessage = dlsym((*plug).dl, "__clientmessage");
-	configure = dlsym((*plug).dl, "__configure");
-	configurenotify = dlsym((*plug).dl, "__configurenotify");
-	configurerequest = dlsym((*plug).dl, "__configurerequest");
-	createmon = dlsym((*plug).dl, "__createmon");
-	destroynotify = dlsym((*plug).dl, "__destroynotify");
-	detach = dlsym((*plug).dl, "__detach");
-	detachstack = dlsym((*plug).dl, "__detachstack");
-	dirtomon = dlsym((*plug).dl, "__dirtomon");
-	drawbar = dlsym((*plug).dl, "__drawbar");
-	drawbars = dlsym((*plug).dl, "__drawbars");
-	enternotify = dlsym((*plug).dl, "__enternotify");
-	expose = dlsym((*plug).dl, "__expose");
-	focus = dlsym((*plug).dl, "__focus");
-	focusin = dlsym((*plug).dl, "__focusin");
-	focusmon = dlsym((*plug).dl, "__focusmon");
-	focusstack = dlsym((*plug).dl, "__focusstack");
-	getatomprop = dlsym((*plug).dl, "__getatomprop");
-	getrootptr = dlsym((*plug).dl, "__getrootptr");
-	getstate = dlsym((*plug).dl, "__getstate");
-	gettextprop = dlsym((*plug).dl, "__gettextprop");
-	grabbuttons = dlsym((*plug).dl, "__grabbuttons");
-	grabkeys = dlsym((*plug).dl, "__grabkeys");
-	incnmaster = dlsym((*plug).dl, "__incnmaster");
-	keypress = dlsym((*plug).dl, "__keypress");
-	killclient = dlsym((*plug).dl, "__killclient");
-	manage = dlsym((*plug).dl, "__manage");
-	mappingnotify = dlsym((*plug).dl, "__mappingnotify");
-	maprequest = dlsym((*plug).dl, "__maprequest");
-	monocle = dlsym((*plug).dl, "__monocle");
-	motionnotify = dlsym((*plug).dl, "__motionnotify");
-	movemouse = dlsym((*plug).dl, "__movemouse");
-	nexttiled = dlsym((*plug).dl, "__nexttiled");
-	pop = dlsym((*plug).dl, "__pop");
-	propertynotify = dlsym((*plug).dl, "__propertynotify");
-	recttomon = dlsym((*plug).dl, "__recttomon");
-	resize = dlsym((*plug).dl, "__resize");
-	resizeclient = dlsym((*plug).dl, "__resizeclient");
-	resizemouse = dlsym((*plug).dl, "__resizemouse");
-	restack = dlsym((*plug).dl, "__restack");
-	run = dlsym((*plug).dl, "__run");
-	scan = dlsym((*plug).dl, "__scan");
-	sendevent = dlsym((*plug).dl, "__sendevent");
-	sendmon = dlsym((*plug).dl, "__sendmon");
-	setclientstate = dlsym((*plug).dl, "__setclientstate");
-	setfocus = dlsym((*plug).dl, "__setfocus");
-	setfullscreen = dlsym((*plug).dl, "__setfullscreen");
-	setlayout = dlsym((*plug).dl, "__setlayout");
-	setmfact = dlsym((*plug).dl, "__setmfact");
-	setup = dlsym((*plug).dl, "__setup");
-	seturgent = dlsym((*plug).dl, "__seturgent");
-	showhide = dlsym((*plug).dl, "__showhide");
-	spawn = dlsym((*plug).dl, "__spawn");
-	tag = dlsym((*plug).dl, "__tag");
-	tagmon = dlsym((*plug).dl, "__tagmon");
-	tile = dlsym((*plug).dl, "__tile");
-	togglebar = dlsym((*plug).dl, "__togglebar");
-	togglefloating = dlsym((*plug).dl, "__togglefloating");
-	toggletag = dlsym((*plug).dl, "__toggletag");
-	toggleview = dlsym((*plug).dl, "__toggleview");
-	unfocus = dlsym((*plug).dl, "__unfocus");
-	unmanage = dlsym((*plug).dl, "__unmanage");
-	unmapnotify = dlsym((*plug).dl, "__unmapnotify");
-	updatebarpos = dlsym((*plug).dl, "__updatebarpos");
-	updatebars = dlsym((*plug).dl, "__updatebars");
-	updateclientlist = dlsym((*plug).dl, "__updateclientlist");
-	updategeom = dlsym((*plug).dl, "__updategeom");
-	updatenumlockmask = dlsym((*plug).dl, "__updatenumlockmask");
-	updatesizehints = dlsym((*plug).dl, "__updatesizehints");
-	updatestatus = dlsym((*plug).dl, "__updatestatus");
-	updatetitle = dlsym((*plug).dl, "__updatetitle");
-	updatewindowtype = dlsym((*plug).dl, "__updatewindowtype");
-	updatewmhints = dlsym((*plug).dl, "__updatewmhints");
-	view = dlsym((*plug).dl, "__view");
-	wintoclient = dlsym((*plug).dl, "__wintoclient");
-	wintomon = dlsym((*plug).dl, "__wintomon");
-	xerror = dlsym((*plug).dl, "__xerror");
-	xerrordummy = dlsym((*plug).dl, "__xerrordummy");
-	xerrorstart = dlsym((*plug).dl, "__xerrorstart");
-	zoom = dlsym((*plug).dl, "__zoom");
-	minimize = dlsym((*plug).dl, "__minimize");
-	restore = dlsym((*plug).dl, "__restore");
-	toggleminimize = dlsym((*plug).dl, "__toggleminimize");
-	reloads = dlsym((*plug).dl, "__reloads");
-	minimize = dlsym((*plug).dl, "__minimize");
-	restore = dlsym((*plug).dl, "__restore");
-	toggleminimize = dlsym((*plug).dl, "__toggleminimize");
-	reloads = dlsym((*plug).dl, "__reloads");
-	(*plug).handler[ButtonPress] = buttonpress;
-	(*plug).handler[ClientMessage] = clientmessage;
-	(*plug).handler[ConfigureNotify] = configurenotify;
-	(*plug).handler[ConfigureRequest] = configurerequest;
-	(*plug).handler[DestroyNotify] = destroynotify;
-	(*plug).handler[EnterNotify] = enternotify;
-	(*plug).handler[Expose] = expose;
-	(*plug).handler[FocusIn] = focusin;
-	(*plug).handler[KeyPress] = keypress;
-	(*plug).handler[MappingNotify] = mappingnotify;
-	(*plug).handler[MapRequest] = maprequest;
-	(*plug).handler[MotionNotify] = motionnotify;
-	(*plug).handler[PropertyNotify] = propertynotify;
-	(*plug).handler[UnmapNotify] = unmapnotify;
-        (*plug).running = 0;
+	applyrules				= dlsym((*plug).dl, "__applyrules");
+	applysizehints				= dlsym((*plug).dl, "__applysizehints");
+	arrange					= dlsym((*plug).dl, "__arrange");
+	arrangemon				= dlsym((*plug).dl, "__arrangemon");
+	attach					= dlsym((*plug).dl, "__attach");
+	attachstack				= dlsym((*plug).dl, "__attachstack");
+	buttonpress				= dlsym((*plug).dl, "__buttonpress");
+	checkotherwm				= dlsym((*plug).dl, "__checkotherwm");
+	cleanup					= dlsym((*plug).dl, "__cleanup");
+	cleanupmon				= dlsym((*plug).dl, "__cleanupmon");
+	clientmessage				= dlsym((*plug).dl, "__clientmessage");
+	configure				= dlsym((*plug).dl, "__configure");
+	configurenotify				= dlsym((*plug).dl, "__configurenotify");
+	configurerequest			= dlsym((*plug).dl, "__configurerequest");
+	createmon				= dlsym((*plug).dl, "__createmon");
+	destroynotify				= dlsym((*plug).dl, "__destroynotify");
+	detach					= dlsym((*plug).dl, "__detach");
+	detachstack				= dlsym((*plug).dl, "__detachstack");
+	dirtomon				= dlsym((*plug).dl, "__dirtomon");
+	drawbar					= dlsym((*plug).dl, "__drawbar");
+	drawbars				= dlsym((*plug).dl, "__drawbars");
+	enternotify				= dlsym((*plug).dl, "__enternotify");
+	expose					= dlsym((*plug).dl, "__expose");
+	focus					= dlsym((*plug).dl, "__focus");
+	focusin					= dlsym((*plug).dl, "__focusin");
+	focusmon				= dlsym((*plug).dl, "__focusmon");
+	focusstack				= dlsym((*plug).dl, "__focusstack");
+	getatomprop				= dlsym((*plug).dl, "__getatomprop");
+	getrootptr				= dlsym((*plug).dl, "__getrootptr");
+	getstate				= dlsym((*plug).dl, "__getstate");
+	gettextprop				= dlsym((*plug).dl, "__gettextprop");
+	grabbuttons				= dlsym((*plug).dl, "__grabbuttons");
+	grabkeys				= dlsym((*plug).dl, "__grabkeys");
+	incnmaster				= dlsym((*plug).dl, "__incnmaster");
+	keypress				= dlsym((*plug).dl, "__keypress");
+	killclient				= dlsym((*plug).dl, "__killclient");
+	manage					= dlsym((*plug).dl, "__manage");
+	mappingnotify				= dlsym((*plug).dl, "__mappingnotify");
+	maprequest				= dlsym((*plug).dl, "__maprequest");
+	monocle					= dlsym((*plug).dl, "__monocle");
+	motionnotify				= dlsym((*plug).dl, "__motionnotify");
+	movemouse				= dlsym((*plug).dl, "__movemouse");
+	nexttiled				= dlsym((*plug).dl, "__nexttiled");
+	pop					= dlsym((*plug).dl, "__pop");
+	propertynotify				= dlsym((*plug).dl, "__propertynotify");
+	recttomon				= dlsym((*plug).dl, "__recttomon");
+	resize					= dlsym((*plug).dl, "__resize");
+	resizeclient				= dlsym((*plug).dl, "__resizeclient");
+	resizemouse				= dlsym((*plug).dl, "__resizemouse");
+	restack					= dlsym((*plug).dl, "__restack");
+	run					= dlsym((*plug).dl, "__run");
+	scan					= dlsym((*plug).dl, "__scan");
+	sendevent				= dlsym((*plug).dl, "__sendevent");
+	sendmon					= dlsym((*plug).dl, "__sendmon");
+	setclientstate				= dlsym((*plug).dl, "__setclientstate");
+	setfocus				= dlsym((*plug).dl, "__setfocus");
+	setfullscreen				= dlsym((*plug).dl, "__setfullscreen");
+	setlayout				= dlsym((*plug).dl, "__setlayout");
+	setmfact				= dlsym((*plug).dl, "__setmfact");
+	setup					= dlsym((*plug).dl, "__setup");
+	seturgent				= dlsym((*plug).dl, "__seturgent");
+	showhide				= dlsym((*plug).dl, "__showhide");
+	spawn					= dlsym((*plug).dl, "__spawn");
+	tag					= dlsym((*plug).dl, "__tag");
+	tagmon					= dlsym((*plug).dl, "__tagmon");
+	tile					= dlsym((*plug).dl, "__tile");
+	togglebar				= dlsym((*plug).dl, "__togglebar");
+	togglefloating				= dlsym((*plug).dl, "__togglefloating");
+	toggletag				= dlsym((*plug).dl, "__toggletag");
+	toggleview				= dlsym((*plug).dl, "__toggleview");
+	unfocus					= dlsym((*plug).dl, "__unfocus");
+	unmanage				= dlsym((*plug).dl, "__unmanage");
+	unmapnotify				= dlsym((*plug).dl, "__unmapnotify");
+	updatebarpos				= dlsym((*plug).dl, "__updatebarpos");
+	updatebars				= dlsym((*plug).dl, "__updatebars");
+	updateclientlist			= dlsym((*plug).dl, "__updateclientlist");
+	updategeom				= dlsym((*plug).dl, "__updategeom");
+	updatenumlockmask			= dlsym((*plug).dl, "__updatenumlockmask");
+	updatesizehints				= dlsym((*plug).dl, "__updatesizehints");
+	updatestatus				= dlsym((*plug).dl, "__updatestatus");
+	updatetitle				= dlsym((*plug).dl, "__updatetitle");
+	updatewindowtype			= dlsym((*plug).dl, "__updatewindowtype");
+	updatewmhints				= dlsym((*plug).dl, "__updatewmhints");
+	view					= dlsym((*plug).dl, "__view");
+	wintoclient				= dlsym((*plug).dl, "__wintoclient");
+	wintomon				= dlsym((*plug).dl, "__wintomon");
+	xerror					= dlsym((*plug).dl, "__xerror");
+	xerrordummy				= dlsym((*plug).dl, "__xerrordummy");
+	xerrorstart				= dlsym((*plug).dl, "__xerrorstart");
+	zoom					= dlsym((*plug).dl, "__zoom");
+	minimize				= dlsym((*plug).dl, "__minimize");
+	restore					= dlsym((*plug).dl, "__restore");
+	toggleminimize				= dlsym((*plug).dl, "__toggleminimize");
+	reloads					= dlsym((*plug).dl, "__reloads");
+	minimize				= dlsym((*plug).dl, "__minimize");
+	restore					= dlsym((*plug).dl, "__restore");
+	toggleminimize				= dlsym((*plug).dl, "__toggleminimize");
+	reloads					= dlsym((*plug).dl, "__reloads");
+	(*plug).handler[ButtonPress]		= buttonpress;
+	(*plug).handler[ClientMessage]		= clientmessage;
+	(*plug).handler[ConfigureNotify]	= configurenotify;
+	(*plug).handler[ConfigureRequest]	= configurerequest;
+	(*plug).handler[DestroyNotify]		= destroynotify;
+	(*plug).handler[EnterNotify]		= enternotify;
+	(*plug).handler[Expose]			= expose;
+	(*plug).handler[FocusIn]		= focusin;
+	(*plug).handler[KeyPress]		= keypress;
+	(*plug).handler[MappingNotify]		= mappingnotify;
+	(*plug).handler[MapRequest]		= maprequest;
+	(*plug).handler[MotionNotify]		= motionnotify;
+	(*plug).handler[PropertyNotify]		= propertynotify;
+	(*plug).handler[UnmapNotify]		= unmapnotify;
+        (*plug).running				= 0;
 }
 
 void applysymlinks() {
-	applyrules = __applyrules;
-	applysizehints = __applysizehints;
-	arrange = __arrange;
-	arrangemon = __arrangemon;
-	attach = __attach;
-	attachstack = __attachstack;
-	buttonpress = __buttonpress;
-	checkotherwm = __checkotherwm;
-	cleanup = __cleanup;
-	cleanupmon = __cleanupmon;
-	clientmessage = __clientmessage;
-	configure = __configure;
-	configurenotify = __configurenotify;
-	configurerequest = __configurerequest;
-	createmon = __createmon;
-	destroynotify = __destroynotify;
-	detach = __detach;
-	detachstack = __detachstack;
-	dirtomon = __dirtomon;
-	drawbar = __drawbar;
-	drawbars = __drawbars;
-	enternotify = __enternotify;
-	expose = __expose;
-	focus = __focus;
-	focusin = __focusin;
-	focusmon = __focusmon;
-	focusstack = __focusstack;
-	getatomprop = __getatomprop;
-	getrootptr = __getrootptr;
-	getstate = __getstate;
-	gettextprop = __gettextprop;
-	grabbuttons = __grabbuttons;
-	grabkeys = __grabkeys;
-	incnmaster = __incnmaster;
-	keypress = __keypress;
-	killclient = __killclient;
-	manage = __manage;
-	mappingnotify = __mappingnotify;
-	maprequest = __maprequest;
-	monocle = __monocle;
-	motionnotify = __motionnotify;
-	movemouse = __movemouse;
-	nexttiled = __nexttiled;
-	pop = __pop;
-	propertynotify = __propertynotify;
-	recttomon = __recttomon;
-	resize = __resize;
-	resizeclient = __resizeclient;
-	resizemouse = __resizemouse;
-	restack = __restack;
-	run = __run;
-	scan = __scan;
-	sendevent = __sendevent;
-	sendmon = __sendmon;
-	setclientstate = __setclientstate;
-	setfocus = __setfocus;
-	setfullscreen = __setfullscreen;
-	setlayout = __setlayout;
-	setmfact = __setmfact;
-	setup = __setup;
-	seturgent = __seturgent;
-	showhide = __showhide;
-	spawn = __spawn;
-	tag = __tag;
-	tagmon = __tagmon;
-	tile = __tile;
-	togglebar = __togglebar;
-	togglefloating = __togglefloating;
-	toggletag = __toggletag;
-	toggleview = __toggleview;
-	unfocus = __unfocus;
-	unmanage = __unmanage;
-	unmapnotify = __unmapnotify;
-	updatebarpos = __updatebarpos;
-	updatebars = __updatebars;
-	updateclientlist = __updateclientlist;
-	updategeom = __updategeom;
-	updatenumlockmask = __updatenumlockmask;
-	updatesizehints = __updatesizehints;
-	updatestatus = __updatestatus;
-	updatetitle = __updatetitle;
-	updatewindowtype = __updatewindowtype;
-	updatewmhints = __updatewmhints;
-	view = __view;
-	wintoclient = __wintoclient;
-	wintomon = __wintomon;
-	xerror = __xerror;
-	xerrordummy = __xerrordummy;
-	xerrorstart = __xerrorstart;
-	zoom = __zoom;
-	minimize = __minimize;
-	restore = __restore;
-	toggleminimize = __toggleminimize;
-	reloads = __reloads;
+	applyrules		= __applyrules;
+	applysizehints		= __applysizehints;
+	arrange			= __arrange;
+	arrangemon		= __arrangemon;
+	attach			= __attach;
+	attachstack		= __attachstack;
+	buttonpress		= __buttonpress;
+	checkotherwm		= __checkotherwm;
+	cleanup			= __cleanup;
+	cleanupmon		= __cleanupmon;
+	clientmessage		= __clientmessage;
+	configure		= __configure;
+	configurenotify		= __configurenotify;
+	configurerequest	= __configurerequest;
+	createmon		= __createmon;
+	destroynotify		= __destroynotify;
+	detach			= __detach;
+	detachstack		= __detachstack;
+	dirtomon		= __dirtomon;
+	drawbar			= __drawbar;
+	drawbars		= __drawbars;
+	enternotify		= __enternotify;
+	expose			= __expose;
+	focus			= __focus;
+	focusin			= __focusin;
+	focusmon		= __focusmon;
+	focusstack		= __focusstack;
+	getatomprop		= __getatomprop;
+	getrootptr		= __getrootptr;
+	getstate		= __getstate;
+	gettextprop		= __gettextprop;
+	grabbuttons		= __grabbuttons;
+	grabkeys		= __grabkeys;
+	incnmaster		= __incnmaster;
+	keypress		= __keypress;
+	killclient		= __killclient;
+	manage			= __manage;
+	mappingnotify		= __mappingnotify;
+	maprequest		= __maprequest;
+	monocle			= __monocle;
+	motionnotify		= __motionnotify;
+	movemouse		= __movemouse;
+	nexttiled		= __nexttiled;
+	pop			= __pop;
+	propertynotify		= __propertynotify;
+	recttomon		= __recttomon;
+	resize			= __resize;
+	resizeclient		= __resizeclient;
+	resizemouse		= __resizemouse;
+	restack			= __restack;
+	run			= __run;
+	scan			= __scan;
+	sendevent		= __sendevent;
+	sendmon			= __sendmon;
+	setclientstate		= __setclientstate;
+	setfocus		= __setfocus;
+	setfullscreen		= __setfullscreen;
+	setlayout		= __setlayout;
+	setmfact		= __setmfact;
+	setup			= __setup;
+	seturgent		= __seturgent;
+	showhide		= __showhide;
+	spawn			= __spawn;
+	tag			= __tag;
+	tagmon			= __tagmon;
+	tile			= __tile;
+	togglebar		= __togglebar;
+	togglefloating		= __togglefloating;
+	toggletag		= __toggletag;
+	toggleview		= __toggleview;
+	unfocus			= __unfocus;
+	unmanage		= __unmanage;
+	unmapnotify		= __unmapnotify;
+	updatebarpos		= __updatebarpos;
+	updatebars		= __updatebars;
+	updateclientlist	= __updateclientlist;
+	updategeom		= __updategeom;
+	updatenumlockmask	= __updatenumlockmask;
+	updatesizehints		= __updatesizehints;
+	updatestatus		= __updatestatus;
+	updatetitle		= __updatetitle;
+	updatewindowtype	= __updatewindowtype;
+	updatewmhints		= __updatewmhints;
+	view			= __view;
+	wintoclient		= __wintoclient;
+	wintomon		= __wintomon;
+	xerror			= __xerror;
+	xerrordummy		= __xerrordummy;
+	xerrorstart		= __xerrorstart;
+	zoom			= __zoom;
+	minimize		= __minimize;
+	restore			= __restore;
+	toggleminimize		= __toggleminimize;
+	reloads			= __reloads;
 	(*plug).handler[ButtonPress] = buttonpress;
 	(*plug).handler[ClientMessage] = clientmessage;
 	(*plug).handler[ConfigureNotify] = configurenotify;
@@ -2567,20 +2591,6 @@ main(int argc, char *argv[])
 		.running = 1,
 		.dl = NULL,
 	};
-	plug->handler[ButtonPress] = __buttonpress;
-	plug->handler[ClientMessage] = __clientmessage;
-	plug->handler[ConfigureRequest] = __configurerequest;
-	plug->handler[ConfigureNotify] = __configurenotify;
-	plug->handler[DestroyNotify] = __destroynotify;
-	plug->handler[EnterNotify] = __enternotify;
-	plug->handler[Expose] = __expose;
-	plug->handler[FocusIn] = __focusin;
-	plug->handler[KeyPress] = __keypress;
-	plug->handler[MappingNotify] = __mappingnotify;
-	plug->handler[MapRequest] = __maprequest;
-	plug->handler[MotionNotify] = __motionnotify;
-	plug->handler[PropertyNotify] = __propertynotify;
-	plug->handler[UnmapNotify] = __unmapnotify;
 	applysymlinks();
     
 	if (argc == 2 && !strcmp("-v", argv[1]))
@@ -2598,16 +2608,13 @@ main(int argc, char *argv[])
 		die("pledge");
 #endif /* __OpenBSD__ */
 	scan();
-	run();
-	while ((*plug).dl) {
+	do {
 		(*plug).running = 1;
 		run();
+		printf("run() Ends\n");
 	}
+	while (plug->dl);
 	cleanup();
 	XCloseDisplay((*plug).dpy);
-	if ((*plug).dl) {
-		dlclose((*plug).dl);
-		(*plug).dl = NULL;
-	}
 	return EXIT_SUCCESS;
 }

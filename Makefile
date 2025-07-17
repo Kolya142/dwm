@@ -8,8 +8,14 @@ OBJ = ${SRC:.c=.o}
 
 all: dwm dwm.so
 
-.c.o:
-	${CC} -c ${CFLAGS} $<
+dwm.o: dwm.c
+	${CC} -c ${CFLAGS} dwm.c -o dwm.o
+
+drw.o: drw.c
+	${CC} -c ${CFLAGS} drw.c -o drw.o
+
+util.o: util.c
+	${CC} -c ${CFLAGS} util.c -o util.o
 
 ${OBJ}: config.h config.mk
 
@@ -19,7 +25,7 @@ config.h:
 dwm: ${OBJ}
 	${CC} -o $@ ${OBJ} ${LDFLAGS}
 
-dwm.so: dwm.o
+dwm.so: ${OBJ}
 	${CC} -shared -o $@ ${OBJ} ${LDFLAGS}
 
 clean:
